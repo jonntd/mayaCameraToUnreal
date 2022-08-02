@@ -55,7 +55,7 @@ bool bUEInitialized = false;
 const char PluginVersion[] = "v1.1.1";
 const char PluginAppId[] = "3726213941804942083";
 
-const MString LiveLinkAddSelectionCommandName("ueCamera");
+const MString LiveLinkAddSelectionCommandName("uePosition");
 
 class LiveLinkAddSelectionCommand : public MPxCommand
 {
@@ -97,7 +97,6 @@ public:
 		appendToResult(rotator.Pitch);
 		appendToResult(rotator.Yaw);
 		return MS::kSuccess;
-
 	}
 };
 
