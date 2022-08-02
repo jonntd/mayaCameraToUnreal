@@ -65,37 +65,87 @@ public:
 
 	MStatus			doIt(const MArgList& args) override
 	{
-		MStatus stat;
+		MStatus status;
 		MSelectionList SelectedItems;
 		MGlobal::getActiveSelectionList(SelectedItems);
-		MDagPath source, target;
+		MDagPath source;
 		MObject tempObject;
-		stat = SelectedItems.getDagPath(0, source, tempObject);
-		if (!stat)
+		status = SelectedItems.getDagPath(0, source, tempObject);
+		if (!status)
 			return MS::kFailure;
-		MFnCamera C(source);
-		MPoint EyeLocation = C.eyePoint(MSpace::kWorld);
-		const auto SceneTime = MayaUtils::GetMayaFrameTimeAsUnrealTime();
-		MMatrix CameraTransformMatrix;
-		MayaUtils::SetMatrixRow(CameraTransformMatrix[0], C.rightDirection(MSpace::kWorld));
-		MayaUtils::SetMatrixRow(CameraTransformMatrix[1], C.viewDirection(MSpace::kWorld));
-		MayaUtils::SetMatrixRow(CameraTransformMatrix[2], C.upDirection(MSpace::kWorld));
-		MayaUtils::SetMatrixRow(CameraTransformMatrix[3], EyeLocation);
-		MayaUtils::RotateCoordinateSystemForUnreal(CameraTransformMatrix);
-		FTransform CameraTransform = MayaUtils::BuildUETransformFromMayaTransform(CameraTransformMatrix);
-		// Convert Maya Camera orientation to Unreal
-		CameraTransform.SetRotation(CameraTransform.GetRotation() * FRotator(0.0f, -90.0f, 0.0f).Quaternion());
-		FVector MoveBy = CameraTransform.GetLocation();
-		FVector euler = CameraTransform.GetRotation().Euler();
-		FRotator rotator = FRotator::MakeFromEuler(euler);
-		MGlobal::displayInfo(MString(" tx ") + MoveBy.X + MString(" ty ") + MoveBy.Y + MString(" tz ") + MoveBy.Z);
-		MGlobal::displayInfo(MString(" rx ")+ rotator.Roll + MString(" ry ") + rotator.Pitch + MString(" rz ") + rotator.Yaw  );
-		appendToResult(MoveBy.X);
-		appendToResult(MoveBy.Y);
-		appendToResult(MoveBy.Z);
-		appendToResult(rotator.Roll);
-		appendToResult(rotator.Pitch);
-		appendToResult(rotator.Yaw);
+
+		auto SourceIndex = args.asInt(0, &status);
+		MGlobal::displayInfo(MString("SourceIndex ") + SourceIndex);
+
+		if (SourceIndex == 0)
+		{
+
+			MFnCamera C(source);
+			MPoint EyeLocation = C.eyePoint(MSpace::kWorld);
+			const auto SceneTime = MayaUtils::GetMayaFrameTimeAsUnrealTime();
+			MMatrix CameraTransformMatrix;
+			MayaUtils::SetMatrixRow(CameraTransformMatrix[0], C.rightDirection(MSpace::kWorld));
+			MayaUtils::SetMatrixRow(CameraTransformMatrix[1], C.viewDirection(MSpace::kWorld));
+			MayaUtils::SetMatrixRow(CameraTransformMatrix[2], C.upDirection(MSpace::kWorld));
+			MayaUtils::SetMatrixRow(CameraTransformMatrix[3], EyeLocation);
+			MayaUtils::RotateCoordinateSystemForUnreal(CameraTransformMatrix);
+			FTransform CameraTransform = MayaUtils::BuildUETransformFromMayaTransform(CameraTransformMatrix);
+			// Convert Maya Camera orientation to Unreal
+			CameraTransform.SetRotation(CameraTransform.GetRotation() * FRotator(0.0f, -90.0f, 0.0f).Quaternion());
+			FVector MoveBy = CameraTransform.GetLocation();
+			FVector euler = CameraTransform.GetRotation().Euler();
+			FRotator rotator = FRotator::MakeFromEuler(euler);
+			MGlobal::displayInfo(MString(" tx ") + MoveBy.X + MString(" ty ") + MoveBy.Y + MString(" tz ") + MoveBy.Z);
+			MGlobal::displayInfo(MString(" rx ") + rotator.Roll + MString(" ry ") + rotator.Pitch + MString(" rz ") + rotator.Yaw);
+			appendToResult(MoveBy.X);
+			appendToResult(MoveBy.Y);
+			appendToResult(MoveBy.Z);
+			appendToResult(rotator.Roll);
+			appendToResult(rotator.Pitch);
+			appendToResult(rotator.Yaw);
+
+		}
+		else
+		{
+			MDagPath DagPath;
+			MayaUtils::GetSelectedSubjectDagPath(DagPath);
+
+			MFnTransform TransformNode(DagPath);
+			double Scales[3] = { 1.0, 1.0, 1.0 };
+			TransformNode.getScale(Scales);
+			MMatrix MayaTransform = TransformNode.transformation().asMatrix();
+			MayaUtils::RotateCoordinateSystemForUnreal(MayaTransform);
+
+			auto UnrealTransform = MayaUtils::BuildUETransformFromMayaTransform(MayaTransform);
+			if (MGlobal::isYAxisUp())
+			{
+				UnrealTransform.SetRotation(UnrealTransform.GetRotation() * FRotator(0.0f, 0.0f, -90.0f).Quaternion());
+			}
+			if (MGlobal::isYAxisUp())
+			{
+				UnrealTransform.SetScale3D(FVector(Scales[0], Scales[2], Scales[1]));
+			}
+			else
+			{
+				UnrealTransform.SetScale3D(FVector(Scales[0], Scales[1], Scales[2]));
+			}
+
+			FVector MoveBy = UnrealTransform.GetLocation();
+			FVector euler = UnrealTransform.GetRotation().Euler();
+			FRotator rotator = FRotator::MakeFromEuler(euler);
+			MGlobal::displayInfo(MString(" tx ") + MoveBy.X + MString(" ty ") + MoveBy.Y + MString(" tz ") + MoveBy.Z);
+			MGlobal::displayInfo(MString(" rx ") + rotator.Roll + MString(" ry ") + rotator.Pitch + MString(" rz ") + rotator.Yaw);
+			appendToResult(MoveBy.X);
+			appendToResult(MoveBy.Y);
+			appendToResult(MoveBy.Z);
+			appendToResult(rotator.Roll);
+			appendToResult(rotator.Pitch);
+			appendToResult(rotator.Yaw);
+		}
+
+
+
+
 		return MS::kSuccess;
 	}
 };
